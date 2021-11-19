@@ -1,11 +1,23 @@
-import express from "express";
-import { graphqlHTTP } from "express-graphql";
-import { buildSchema } from "graphql";
-import { contacts } from "./data";
+import express, { Application } from "express";
+import * as dotenv from "dotenv";
+dotenv.config();
+const { ApolloServer, gql } = require("apollo-server-express");
 import cors from "cors";
+import { connectDB } from "./database";
+import { ContactModel } from "./models";
+
+//database
+connectDB();
+
 // Construct a schema, using GraphQL schema language
 
-const schema = buildSchema(`
+interface Contact {
+  username: string;
+  tel: string;
+  id?: string;
+}
+
+const typeDefs = gql(`
 
   type Contact {
       username: String!
@@ -29,30 +41,41 @@ const schema = buildSchema(`
 
 `);
 
-var root = {
-  allContacts: () => {
-    return contacts;
+const resolvers = {
+  Query: {
+    async allContacts(root: Contact, data: any, models: any) {
+      return models.ContactModel.findAll();
+    },
+    findContact: (root: any, args: any, models: any) => {
+      const { name } = args;
+      return models.ContactModel.findOne({ where: { username: name } });
+    },
   },
-  findContact: (args: any) => {
-    const { name } = args;
-    return contacts.find((n) => n.username == name);
-  },
-  addContact: (args: any) => {
-    const contact = { ...args, id: Date.now().toString() };
-    contacts.push(contact);
-    return contact;
+  Mutation: {
+    async addContact(root: Contact, data: any, models: any) {
+      const contact = data;
+      return await models.ContactModel.create(contact);
+    },
   },
 };
 
-const app = express();
-app.use(cors());
-app.use(
-  "/graphql",
-  graphqlHTTP({
-    schema: schema,
-    rootValue: root,
-    graphiql: true,
-  })
-);
-app.listen(4000);
-console.log("Running a GraphQL API server at http://localhost:4000/graphql");
+const app: Application = express();
+
+const startServer = async () => {
+  const server = new ApolloServer({
+    typeDefs,
+    resolvers,
+    context: { ContactModel },
+  });
+
+  app.use(cors());
+  await server.start();
+
+  server.applyMiddleware({ app });
+};
+
+startServer();
+
+app.listen({ port: 4000 }, () => {
+  console.log(`Server encendido en http://localhost:${4000}/graphql`);
+});
