@@ -4,38 +4,66 @@ dotenv.config();
 const { ApolloServer, gql } = require("apollo-server-express");
 import cors from "cors";
 import { connectDB } from "./database";
-import { ContactModel } from "./models";
+import { Maquinas, Componentes, Equipos } from "./models";
+import {
+  ComponentesInterface,
+  EquiposInterface,
+  MaquinasInterface,
+} from "./interfaces";
 
 //database
 connectDB();
 
 // Construct a schema, using GraphQL schema language
 
-interface Contact {
-  username: string;
-  tel: string;
-  id?: string;
-}
-
 const typeDefs = gql(`
 
-  type Contact {
-      username: String!
-      tel: String!
-      id: String!
+  type Equipos {
+    id: ID!
+    modelo: String!
+    descripcion: String
+  }
+
+  type Componentes {
+    id: ID!
+    codigo: String!
+    comentario: String
+    id_maquina: String
+    id_componente_mayor: ID
+    componentes: [Componentes]
+  }
+
+  type Maquinas {
+    id: ID!
+    codigo: String!
+    comentario: String!
+    horas_por_dia: Float!
+    id_equipo: ID!
+    componentes: [Componentes]
+    equipo: Equipos
   }
 
   type Query {
-    allContacts: [Contact]!
-    findContact(name: String!): Contact
-  
+    allMaquinas: [Maquinas]!
   }
 
   type Mutation {
-    addContact(
-      username: String!
-      tel: String!
-    ): Contact
+    createMaquina(
+      codigo: String!
+      comentario: String!
+      horas_por_dia: Float!
+      id_equipo: ID!
+    ): Maquinas
+    createComponente(
+      codigo: String!
+      comentario: String
+      id_maquina: ID
+      id_componente_mayor: ID
+    ): Componentes
+    createEquipo(
+      modelo: String!,
+      descripcion: String
+    ): Equipos
   }
 
 
@@ -43,18 +71,33 @@ const typeDefs = gql(`
 
 const resolvers = {
   Query: {
-    async allContacts(root: Contact, data: any, models: any) {
-      return models.ContactModel.findAll();
-    },
-    findContact: (root: any, args: any, models: any) => {
-      const { name } = args;
-      return models.ContactModel.findOne({ where: { username: name } });
+    async allMaquinas(root: MaquinasInterface, data: any, models: any) {
+      return await models.Maquinas.findAll({
+        include: { all: true, nested: true },
+      });
     },
   },
   Mutation: {
-    async addContact(root: Contact, data: any, models: any) {
-      const contact = data;
-      return await models.ContactModel.create(contact);
+    async createMaquina(
+      root: MaquinasInterface,
+      data: MaquinasInterface,
+      models: any
+    ) {
+      return await models.Maquinas.create(data);
+    },
+    async createComponente(
+      root: ComponentesInterface,
+      data: ComponentesInterface,
+      models: any
+    ) {
+      return await models.Componentes.create(data);
+    },
+    async createEquipo(
+      root: EquiposInterface,
+      data: EquiposInterface,
+      models: any
+    ) {
+      return await models.Equipos.create(data);
     },
   },
 };
@@ -65,7 +108,7 @@ const startServer = async () => {
   const server = new ApolloServer({
     typeDefs,
     resolvers,
-    context: { ContactModel },
+    context: { Maquinas, Componentes, Equipos },
   });
 
   app.use(cors());
