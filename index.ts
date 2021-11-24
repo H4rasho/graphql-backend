@@ -30,7 +30,8 @@ const typeDefs = gql(`
     comentario: String
     id_maquina: String
     id_componente_mayor: ID
-    componentes: [Componentes]
+    id_equipo: ID!
+    equipo: Equipos
   }
 
   type Maquinas {
@@ -59,6 +60,7 @@ const typeDefs = gql(`
       comentario: String
       id_maquina: ID
       id_componente_mayor: ID
+      id_equipo: ID
     ): Componentes
     createEquipo(
       modelo: String!,
@@ -71,9 +73,13 @@ const typeDefs = gql(`
 
 const resolvers = {
   Query: {
-    async allMaquinas(root: MaquinasInterface, data: any, models: any) {
+    async allMaquinas(
+      root: MaquinasInterface,
+      data: MaquinasInterface,
+      models: any
+    ) {
       return await models.Maquinas.findAll({
-        include: { all: true, nested: true },
+        include: [{ model: models.Equipos }, { model: models.Componentes }],
       });
     },
   },
